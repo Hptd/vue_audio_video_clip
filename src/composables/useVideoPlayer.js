@@ -206,7 +206,6 @@ export function useVideoPlayer(videoRef) {
     setVolume,
     toggleMute,
     toggleFullscreen,
-    onTimeUpdate,
     onLoadedMetadata,
     onPlay,
     onPause,

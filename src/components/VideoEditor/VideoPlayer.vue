@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useVideoPlayer } from '../../composables/useVideoPlayer'
 import TimeDisplay from './TimeDisplay.vue'
 
@@ -18,6 +18,7 @@ const emit = defineEmits(['time-update', 'duration-change', 'play-state-change']
 
 const videoRef = ref(null)
 const progressContainerRef = ref(null)
+const animationFrameId = ref(null)
 
 const {
   isPlaying,
@@ -34,7 +35,6 @@ const {
   setVolume,
   toggleMute,
   toggleFullscreen,
-  onTimeUpdate,
   onLoadedMetadata,
   onPlay,
   onPause,
@@ -42,9 +42,38 @@ const {
   onEnded
 } = useVideoPlayer(videoRef)
 
-// 监听当前时间变化，向父组件发送事件
-watch(currentTime, (newTime) => {
-  emit('time-update', newTime)
+/**
+ * 使用 requestAnimationFrame 循环更新时间
+ */
+function startUpdateLoop() {
+  function update() {
+    if (videoRef.value && !videoRef.value.paused && !videoRef.value.ended) {
+      currentTime.value = videoRef.value.currentTime
+      emit('time-update', currentTime.value)
+    }
+    animationFrameId.value = requestAnimationFrame(update)
+  }
+  animationFrameId.value = requestAnimationFrame(update)
+}
+
+/**
+ * 停止更新循环
+ */
+function stopUpdateLoop() {
+  if (animationFrameId.value) {
+    cancelAnimationFrame(animationFrameId.value)
+    animationFrameId.value = null
+  }
+}
+
+// 监听播放状态，启动/停止更新循环
+watch(isPlaying, (newPlaying) => {
+  emit('play-state-change', newPlaying)
+  if (newPlaying) {
+    startUpdateLoop()
+  } else {
+    stopUpdateLoop()
+  }
 })
 
 // 监听时长变化
@@ -52,9 +81,9 @@ watch(duration, (newDuration) => {
   emit('duration-change', newDuration)
 })
 
-// 监听播放状态变化
-watch(isPlaying, (newPlaying) => {
-  emit('play-state-change', newPlaying)
+// 组件卸载时清理
+onUnmounted(() => {
+  stopUpdateLoop()
 })
 
 /**
@@ -109,6 +138,11 @@ function getVolumeIcon() {
     return 'volume-up'
   }
 }
+
+// 暴露 seek 方法给父组件
+defineExpose({
+  seek
+})
 </script>
 
 <template>
@@ -119,7 +153,6 @@ function getVolumeIcon() {
         ref="videoRef"
         :src="src"
         :poster="poster"
-        @time-update="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
         @play="onPlay"
         @pause="onPause"
