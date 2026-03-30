@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import VideoEditor from '../VideoEditor/VideoEditor.vue'
 
 const props = defineProps({
   file: {
@@ -12,6 +13,8 @@ const emit = defineEmits(['remove'])
 
 const isVideo = computed(() => props.file.type === 'video')
 const isAudio = computed(() => props.file.type === 'audio')
+
+const showEditor = computed(() => isVideo.value && editorOpen.value)
 
 const mediaType = computed(() => {
   if (isVideo.value) return '视频'
@@ -26,6 +29,9 @@ const fileSize = computed(() => {
   }
   return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
 })
+
+// 编辑器状态
+const editorOpen = ref(false)
 
 /**
  * 格式化时长显示
@@ -43,6 +49,22 @@ function formatDuration(seconds) {
 
 function handleRemove() {
   emit('remove', props.file.id)
+}
+
+function handleEdit() {
+  if (isVideo.value) {
+    editorOpen.value = true
+  }
+}
+
+function handleCloseEditor() {
+  editorOpen.value = false
+}
+
+function handleConfirmEditor(clipRange) {
+  console.log('剪辑范围:', clipRange)
+  editorOpen.value = false
+  // TODO: 后续实现剪辑功能
 }
 </script>
 
@@ -80,7 +102,12 @@ function handleRemove() {
 
     <!-- 操作按钮 -->
     <div class="file-actions">
-      <button class="btn btn-edit" disabled title="编辑功能开发中...">
+      <button 
+        class="btn btn-edit" 
+        :disabled="!isVideo"
+        :title="isVideo ? '编辑视频' : '音频编辑功能待开发'"
+        @click="handleEdit"
+      >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -96,6 +123,15 @@ function handleRemove() {
       </button>
     </div>
   </div>
+  
+  <!-- 视频编辑器弹窗 -->
+  <VideoEditor
+    v-if="showEditor"
+    :show="showEditor"
+    :file="file"
+    @close="handleCloseEditor"
+    @confirm="handleConfirmEditor"
+  />
 </template>
 
 <style scoped>
